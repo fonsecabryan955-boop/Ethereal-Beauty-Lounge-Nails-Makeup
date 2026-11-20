@@ -1,5 +1,5 @@
 // Service worker: la app abre sin internet; los datos de Supabase siempre van en vivo.
-const V = "ethereal-v1";
+const V = "ethereal-v2";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -37,4 +37,31 @@ self.addEventListener("fetch", e => {
       return res;
     }))
   );
+});
+
+// Notificaciones push (nueva cita / recordatorios)
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) {}
+  e.waitUntil(self.registration.showNotification(d.title || "Ethereal Beauty Lounge", {
+    body: d.body || "",
+    icon: "icon-192.png",
+    badge: "icon-192.png",
+    tag: d.tag || "ethereal",
+    renotify: true,
+    vibrate: [120, 60, 120],
+    data: { url: d.url || "./" }
+  }));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const base = new URL("./", self.location.href);
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", base).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) {
+      if ("focus" in c) { if (c.navigate) c.navigate(url); return c.focus(); }
+    }
+    return clients.openWindow(url);
+  }));
 });
